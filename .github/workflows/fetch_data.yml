@@ -25,3 +25,9 @@ jobs:
 
     - name: Run Fetch Script
       run: python extract.py
+
+    - name: Upload Data Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: fetched_data
+        path: fetched_data.csv
