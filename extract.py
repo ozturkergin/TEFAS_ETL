@@ -128,3 +128,4 @@ if __name__ == "__main__":
 
     # Upload to PythonAnywhere
     upload_to_pythonanywhere(csv_file)
+    
