@@ -2,6 +2,7 @@ import requests
 import math
 import json
 import pandas as pd
+import pandas_ta as ta
 import os
 from datetime import datetime, timedelta, date
 from typing import Dict, Union
@@ -94,15 +95,34 @@ def upload_to_pythonanywhere(file_path: str):
     else:
         print(f"Failed to upload file: {response.status_code}, {response.text}")
 
+def calculate_ta(group):
+    group_indexed = group.copy()
+    group_indexed.set_index('date', inplace=True)
+    # Relative Strength Index (RSI)
+    RSI = ta.rsi(group_indexed['close'], length=14)
+    group_indexed = pd.concat([group_indexed, RSI], axis=1)
+    group_indexed.reset_index(inplace=True)
+    return group_indexed
+
 # Main Process
 if __name__ == "__main__":
-    date_start = date.today().strftime("%Y-%m-%d")
+    start_date_calc = date.today() - timedelta(days=30)
+    date_start = start_date_calc.strftime("%Y-%m-%d")
     date_end = date.today().strftime("%Y-%m-%d")
 
     start_date_initial = datetime.strptime(date_start, "%Y-%m-%d")
     end_date_initial = datetime.strptime(date_end, "%Y-%m-%d")
 
     fetched_data = fetch_info(start_date_initial, end_date_initial)
+    fetched_data['symbol'] = fetched_data['FONKODU']
+    fetched_data['close'] = fetched_data['FIYAT']
+    fetched_data['date'] = fetched_data['TARIH']
+    fetched_data['date'] = pd.to_datetime(fetched_data['date'], errors='coerce')
+    fetched_data['close'].astype(float,False)
+    fetched_data.sort_values(by=['symbol', 'date'], inplace=True)
+    fetched_data = fetched_data.groupby(['symbol']).apply(calculate_ta)
+    fetched_data = fetched_data.drop_duplicates(subset=['symbol'], keep='last')
+
     csv_file = "fetched_data.csv"
     fetched_data.to_csv(csv_file, index=False)
 
