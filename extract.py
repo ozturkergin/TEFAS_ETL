@@ -2,7 +2,6 @@ import requests
 import math
 import json
 import pandas as pd
-import pandas_ta as ta
 import os
 from datetime import datetime, timedelta, date
 from typing import Dict, Union
@@ -95,12 +94,26 @@ def upload_to_pythonanywhere(file_path: str):
     else:
         print(f"Failed to upload file: {response.status_code}, {response.text}")
 
+def calculate_rsi(data: pd.Series, length: int = 14) -> pd.Series:
+    """Calculate RSI for a given price series using pandas."""
+    delta = data.diff()
+    gains = delta.where(delta > 0, 0)
+    losses = -delta.where(delta < 0, 0)
+
+    avg_gains = gains.rolling(window=length, min_periods=1).mean()
+    avg_losses = losses.rolling(window=length, min_periods=1).mean()
+
+    rs = avg_gains / avg_losses
+    rs = rs.replace([float('inf'), -float('inf')], 0)  # Handle division by zero
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
 def calculate_ta(group):
     group_indexed = group.copy()
     group_indexed.set_index('date', inplace=True)
-    # Relative Strength Index (RSI)
-    RSI = ta.rsi(group_indexed['close'], length=14)
-    group_indexed = pd.concat([group_indexed, RSI], axis=1)
+    # Calculate Relative Strength Index (RSI)
+    rsi = calculate_rsi(group_indexed['close'], length=14)
+    group_indexed['RSI'] = rsi
     group_indexed.reset_index(inplace=True)
     return group_indexed
 
@@ -118,7 +131,7 @@ if __name__ == "__main__":
     fetched_data['close'] = fetched_data['FIYAT']
     fetched_data['date'] = fetched_data['TARIH']
     fetched_data['date'] = pd.to_datetime(fetched_data['date'], errors='coerce')
-    fetched_data['close'].astype(float,False)
+    fetched_data['close'] = fetched_data['close'].astype(float)
     fetched_data.sort_values(by=['symbol', 'date'], inplace=True)
     fetched_data = fetched_data.groupby(['symbol']).apply(calculate_ta)
     fetched_data = fetched_data.drop_duplicates(subset=['symbol'], keep='last')
@@ -128,4 +141,3 @@ if __name__ == "__main__":
 
     # Upload to PythonAnywhere
     upload_to_pythonanywhere(csv_file)
-    
